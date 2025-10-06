@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'login_page.dart';
+import '../pages/check_email.dart'; // Import the new page
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -14,7 +15,7 @@ class SignUpScreen extends StatefulWidget {
 class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _nameController = TextEditingController(); // New controller for name
+  final TextEditingController _nameController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -28,20 +29,31 @@ class _SignUpScreenState extends State<SignUpScreen> {
       User? user = userCredential.user;
 
       if (user != null) {
-        // Create a user document in Firestore with the user's name
+        // Step 1: Send the email verification right after user creation.
+        await user.sendEmailVerification();
+
+        // Step 2: Create a user document in Firestore with the user's name.
         await _firestore.collection('users').doc(user.uid).set({
           'id': user.uid,
           'email': user.email,
-          'name': _nameController.text.trim(), // Save the name
+          'name': _nameController.text.trim(),
           'createdAt': Timestamp.now(),
         });
 
-        // Update the user's display name in Firebase Auth
+        // Step 3: Update the user's display name in Firebase Auth.
         await user.updateDisplayName(_nameController.text.trim());
 
+        // Step 4: Show a success message to the user.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('A verification link has been sent to your email.'),
+          ),
+        );
+
+        // Step 5: Navigate to a new page that prompts the user to check their email.
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) =>  LoginScreen()),
+          MaterialPageRoute(builder: (context) => const CheckEmailPage()),
         );
       }
     } on FirebaseAuthException catch (e) {
@@ -82,7 +94,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               obscureText: true,
             ),
             TextField(
-              controller: _nameController, // Attach controller
+              controller: _nameController,
               decoration: const InputDecoration(labelText: 'Name'),
             ),
             const SizedBox(height: 20),
@@ -95,7 +107,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) =>  LoginScreen()),
+                  MaterialPageRoute(builder: (context) => LoginScreen()),
                 );
               },
               child: const Text('Already have an account? Login'),
